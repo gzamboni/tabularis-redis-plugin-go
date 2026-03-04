@@ -50,7 +50,7 @@ func TestTestConnection(t *testing.T) {
 	paramsJSON, _ := json.Marshal(map[string]interface{}{"params": params})
 	req := Request{
 		JSONRPC: "2.0",
-		ID:      1,
+		ID:      json.RawMessage(`1`),
 		Method:  "test_connection",
 		Params:  paramsJSON,
 	}
@@ -66,7 +66,7 @@ func TestTestConnection(t *testing.T) {
 func TestGetTables(t *testing.T) {
 	req := Request{
 		JSONRPC: "2.0",
-		ID:      2,
+		ID:      json.RawMessage(`2`),
 		Method:  "get_tables",
 		Params:  json.RawMessage(`{}`),
 	}
@@ -82,7 +82,7 @@ func TestGetTables(t *testing.T) {
 func TestGetColumns(t *testing.T) {
 	req := Request{
 		JSONRPC: "2.0",
-		ID:      3,
+		ID:      json.RawMessage(`3`),
 		Method:  "get_columns",
 		Params:  json.RawMessage(`{"table":"keys"}`),
 	}
@@ -112,7 +112,7 @@ func TestExecuteQueryKeys(t *testing.T) {
 	
 	req := Request{
 		JSONRPC: "2.0",
-		ID:      4,
+		ID:      json.RawMessage(`4`),
 		Method:  "execute_query",
 		Params:  paramsJSON,
 	}
@@ -147,7 +147,7 @@ func TestExecuteQueryHashes(t *testing.T) {
 	
 	req := Request{
 		JSONRPC: "2.0",
-		ID:      5,
+		ID:      json.RawMessage(`5`),
 		Method:  "execute_query",
 		Params:  paramsJSON,
 	}
