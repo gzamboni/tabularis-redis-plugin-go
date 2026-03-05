@@ -1,7 +1,7 @@
 {
   "id": "redis",
   "name": "Redis",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Tabularis driver for Redis databases",
   "default_port": 6379,
   "default_username": "default",
