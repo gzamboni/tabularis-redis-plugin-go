@@ -52,7 +52,7 @@ If your version of Tabularis supports plugin management, the Redis plugin can be
 
 ### Manual Installation
 
-1. **Download** the latest release for your platform from the [Releases page](https://github.com/gzamboni/redis-tabularis-plugin/releases)
+1. **Download** the latest release for your platform from the [Releases page](https://github.com/gzamboni/tabularis-redis-plugin-go/releases)
 2. **Extract** the archive (contains the executable, `manifest.json`, `README.md`, and `LICENSE`)
 3. **Copy** the contents to the Tabularis plugins directory:
 
@@ -398,11 +398,11 @@ The plugin implements the following JSON-RPC methods:
 
 ```bash
 # Clone the repository
-git clone https://github.com/gzamboni/redis-tabularis-plugin.git
-cd redis-tabularis-plugin
+git clone https://github.com/gzamboni/tabularis-redis-plugin-go.git
+cd tabularis-redis-plugin-go
 
 # Build the plugin
-go build -o redis-tabularis-plugin ./cmd/redis-tabularis-plugin
+go build -o tabularis-redis-plugin-go ./cmd/tabularis-redis-plugin-go
 ```
 
 The executable will be generated in the current directory.
@@ -413,13 +413,13 @@ To build for multiple platforms:
 
 ```bash
 # Linux AMD64
-GOOS=linux GOARCH=amd64 go build -o redis-tabularis-plugin-linux-amd64 ./cmd/redis-tabularis-plugin
+GOOS=linux GOARCH=amd64 go build -o tabularis-redis-plugin-go-linux-amd64 ./cmd/tabularis-redis-plugin-go
 
 # macOS ARM64 (Apple Silicon)
-GOOS=darwin GOARCH=arm64 go build -o redis-tabularis-plugin-darwin-arm64 ./cmd/redis-tabularis-plugin
+GOOS=darwin GOARCH=arm64 go build -o tabularis-redis-plugin-go-darwin-arm64 ./cmd/tabularis-redis-plugin-go
 
 # Windows AMD64
-GOOS=windows GOARCH=amd64 go build -o redis-tabularis-plugin-windows-amd64.exe ./cmd/redis-tabularis-plugin
+GOOS=windows GOARCH=amd64 go build -o tabularis-redis-plugin-go-windows-amd64.exe ./cmd/tabularis-redis-plugin-go
 ```
 
 ## Development
@@ -433,7 +433,7 @@ The plugin communicates with Tabularis via JSON-RPC 2.0 over `stdin` and `stdout
 Test the plugin by piping JSON-RPC requests directly:
 
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"test_connection","params":{"params":{"driver":"redis","host":"localhost","port":6379,"database":"0"}}}' | ./redis-tabularis-plugin
+echo '{"jsonrpc":"2.0","id":1,"method":"test_connection","params":{"params":{"driver":"redis","host":"localhost","port":6379,"database":"0"}}}' | ./tabularis-redis-plugin-go
 ```
 
 Expected response:
@@ -522,5 +522,5 @@ This project is licensed under the MIT License. See the [`LICENSE`](LICENSE) fil
 
 ---
 
-**Repository:** [github.com/gzamboni/redis-tabularis-plugin](https://github.com/gzamboni/redis-tabularis-plugin)
+**Repository:** [github.com/gzamboni/tabularis-redis-plugin-go](https://github.com/gzamboni/tabularis-redis-plugin-go)
 **Tabularis:** [github.com/debba/tabularis](https://github.com/debba/tabularis)
