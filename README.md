@@ -42,8 +42,6 @@ The plugin maps Redis data structures to virtual tables for SQL-like querying:
 | **Set** | Unordered collections of unique strings | `sets` |
 | **Sorted Set (ZSet)** | Collections of unique strings ordered by score | `zsets` |
 
-> **Note:** Data exploration is currently read-only. Write operations are not yet supported.
-
 ## Installation
 
 ### Automatic (via Tabularis)
