@@ -87,6 +87,9 @@ Since Redis is a key-value store, it is mapped to virtual tables for SQL-like qu
 | `lists` | (key, index, value) | `LRANGE` |
 | `sets` | (key, member) | `SMEMBERS` |
 | `zsets` | (key, member, score) | `ZRANGE` with scores |
+| `pubsub_channels` | (channel, subscribers, is_pattern, last_message_time) | `PUBSUB CHANNELS`, `PUBSUB NUMSUB` |
+| `pubsub_messages` | (subscription_id, message_id, channel, payload, published_at, received_at) | In-memory message buffers |
+| `pubsub_subscriptions` | (id, channel, is_pattern, created_at, ttl, buffer_size, buffer_used, messages_received, messages_dropped) | In-memory subscription manager |
 
 **Important:** When implementing new features or queries, ensure they align with these virtual table schemas.
 
@@ -141,7 +144,18 @@ tabularis-redis-plugin-go/
 ├── manifest.json        # Plugin metadata for Tabularis
 ├── go.mod               # Go module definition
 ├── go.sum               # Go dependency checksums
-├── run_e2e.sh          # E2E test script (Docker-based)
+├── tests/              # Test scripts
+│   ├── run_e2e.sh      # E2E test script (Docker-based)
+│   ├── test_pubsub_e2e.sh
+│   ├── test_pubsub_local.sh
+│   └── test_pubsub_tables.sh
+├── docs/               # Documentation
+│   ├── PUBSUB.md
+│   ├── PUBSUB_VIRTUAL_TABLES.md
+│   ├── redis_pubsub_design.md
+│   ├── TESTING_PUBSUB.md
+│   ├── TEST_SCRIPT_DEMO.md
+│   └── QUICK_START_TESTING.md
 ├── seed_redis.go       # Test data seeding utility
 ├── .goreleaser.yaml    # GoReleaser configuration
 ├── .github/
@@ -333,14 +347,14 @@ func TestMethodName(t *testing.T) {
 
 ### End-to-End Tests
 
-**Location:** [`run_e2e.sh`](run_e2e.sh)
+**Location:** [`tests/run_e2e.sh`](tests/run_e2e.sh)
 
 **Requirements:** Docker
 
 **Run:**
 ```bash
-chmod +x run_e2e.sh
-./run_e2e.sh
+chmod +x tests/run_e2e.sh
+./tests/run_e2e.sh
 ```
 
 **What it does:**
@@ -370,7 +384,7 @@ chmod +x run_e2e.sh
 2. Setup Go 1.19
 3. Build plugin (`go build -v ./...`)
 4. Run unit tests (`go test -v ./...`)
-5. Run E2E tests (`./run_e2e.sh`)
+5. Run E2E tests (`./tests/run_e2e.sh`)
 
 **Status:** Must pass before merging PRs
 
@@ -543,7 +557,146 @@ SELECT * FROM zsets WHERE score >= 50 AND score <= 200 ORDER BY score DESC LIMIT
 4. **Update tests** in [`main_test.go`](main_test.go) with new test cases
 5. **Document** in [`README.md`](README.md) and this file
 
-### Task 3: Updating Dependencies
+### Task 3: Working with Redis Pub/Sub
+
+The plugin implements comprehensive Redis Pub/Sub support through both JSON-RPC methods and virtual tables.
+
+**Architecture Overview:**
+
+The Pub/Sub implementation uses a polling-based approach with server-side message buffering to bridge Redis's asynchronous Pub/Sub model with Tabularis's synchronous JSON-RPC protocol.
+
+**Key Components:**
+
+1. **SubscriptionManager** ([`internal/plugin/pubsub.go:296`](internal/plugin/pubsub.go:296))
+   - Manages active subscriptions
+   - Handles subscription lifecycle (create, retrieve, cleanup)
+   - Thread-safe with mutex protection
+
+2. **Subscription** ([`internal/plugin/pubsub.go:175`](internal/plugin/pubsub.go:175))
+   - Represents an active channel subscription
+   - Runs background goroutine to receive messages
+   - Supports both exact and pattern-based subscriptions
+   - Automatic expiration based on TTL
+
+3. **MessageBuffer** ([`internal/plugin/pubsub.go:26`](internal/plugin/pubsub.go:26))
+   - Thread-safe circular buffer for messages
+   - Configurable capacity (default: 1000 messages)
+   - Supports acknowledgment tracking
+   - Drops oldest unacknowledged messages when full
+
+4. **Virtual Tables** ([`internal/plugin/executor.go:755-1004`](internal/plugin/executor.go:755))
+   - `pubsub_channels` - Lists active Redis channels
+   - `pubsub_messages` - Queries buffered messages
+   - `pubsub_subscriptions` - Shows active subscriptions
+
+**JSON-RPC Methods:**
+
+1. **`pubsub_subscribe`** ([`internal/plugin/pubsub.go:485`](internal/plugin/pubsub.go:485))
+   - Creates a new subscription to a channel or pattern
+   - Parameters: `channel`, `is_pattern`, `buffer_size`, `ttl`
+   - Returns: `subscription_id`, subscription metadata
+
+2. **`pubsub_unsubscribe`** ([`internal/plugin/pubsub.go:523`](internal/plugin/pubsub.go:523))
+   - Terminates a subscription
+   - Parameters: `subscription_id`
+   - Returns: `success`, `messages_dropped`
+
+3. **`pubsub_publish`** ([`internal/plugin/pubsub.go:543`](internal/plugin/pubsub.go:543))
+   - Publishes a message to a channel
+   - Parameters: `channel`, `message`
+   - Returns: `success`, `receivers` (number of subscribers)
+
+4. **`pubsub_poll_messages`** ([`internal/plugin/pubsub.go:573`](internal/plugin/pubsub.go:573))
+   - Retrieves messages from a subscription's buffer
+   - Parameters: `subscription_id`, `max_messages`, `timeout_ms`, `auto_acknowledge`
+   - Returns: `messages[]`, `more_available`, `buffer_size`
+
+5. **`pubsub_acknowledge_messages`** ([`internal/plugin/pubsub.go:602`](internal/plugin/pubsub.go:602))
+   - Marks messages as processed
+   - Parameters: `subscription_id`, `message_ids[]`
+   - Returns: `success`, `messages_acknowledged`
+
+**Usage Examples:**
+
+```go
+// Subscribe to a channel
+req := PubSubSubscribeRequest{
+    Params: connectionParams,
+    Channel: "notifications",
+    IsPattern: false,
+    BufferSize: 1000,
+    TTL: 3600,
+}
+resp, err := HandlePubSubSubscribe(req)
+
+// Publish a message
+pubReq := PubSubPublishRequest{
+    Params: connectionParams,
+    Channel: "notifications",
+    Message: "Hello, Redis!",
+}
+pubResp, err := HandlePubSubPublish(pubReq)
+
+// Poll for messages
+pollReq := PubSubPollMessagesRequest{
+    Params: connectionParams,
+    SubscriptionID: resp.SubscriptionID,
+    MaxMessages: 100,
+    AutoAcknowledge: false,
+}
+pollResp, err := HandlePubSubPollMessages(pollReq)
+
+// Acknowledge messages
+ackReq := PubSubAcknowledgeMessagesRequest{
+    Params: connectionParams,
+    SubscriptionID: resp.SubscriptionID,
+    MessageIDs: []int64{1, 2, 3},
+}
+ackResp, err := HandlePubSubAcknowledgeMessages(ackReq)
+```
+
+**SQL Query Examples:**
+
+```sql
+-- List all active channels
+SELECT * FROM pubsub_channels WHERE subscribers > 0
+
+-- Get recent messages from a subscription
+SELECT * FROM pubsub_messages
+WHERE subscription_id = 'sub_abc123'
+ORDER BY received_at DESC
+LIMIT 10
+
+-- Monitor subscription health
+SELECT id, channel, ttl, buffer_used, buffer_size, messages_dropped
+FROM pubsub_subscriptions
+WHERE buffer_used > buffer_size * 0.8 OR messages_dropped > 0
+```
+
+**Important Considerations:**
+
+1. **Concurrency**: Subscriptions run in background goroutines; use proper synchronization
+2. **Resource Management**: Subscriptions auto-expire based on TTL; cleanup runs periodically
+3. **Buffer Overflow**: Messages are dropped when buffer is full; monitor `messages_dropped`
+4. **Acknowledgment**: Use manual acknowledgment for at-least-once delivery semantics
+5. **Pattern Subscriptions**: Use `is_pattern: true` for pattern-based subscriptions (e.g., `user:*`)
+
+**Testing:**
+
+Unit tests are in [`internal/plugin/pubsub_test.go`](internal/plugin/pubsub_test.go):
+- Subscription lifecycle tests
+- Message buffering tests
+- Virtual table query tests
+- Error handling tests
+
+**Documentation:**
+
+For detailed Pub/Sub documentation, see:
+- [`docs/PUBSUB.md`](docs/PUBSUB.md) - Comprehensive user guide
+- [`docs/redis_pubsub_design.md`](docs/redis_pubsub_design.md) - Design document
+- [`docs/PUBSUB_VIRTUAL_TABLES.md`](docs/PUBSUB_VIRTUAL_TABLES.md) - Virtual tables implementation
+
+### Task 4: Updating Dependencies
 
 ```bash
 # Update all dependencies
@@ -725,7 +878,7 @@ go test -v ./...
 - [ ] Verify JSON-RPC request format
 - [ ] Test Redis connection with `redis-cli`
 - [ ] Run unit tests: `go test -v ./...`
-- [ ] Run E2E tests: `./run_e2e.sh`
+- [ ] Run E2E tests: `./tests/run_e2e.sh`
 - [ ] Check for stdout corruption
 - [ ] Validate response JSON structure
 - [ ] Review recent code changes

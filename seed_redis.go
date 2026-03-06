@@ -22,7 +22,9 @@ func main() {
 
 	// 1. Strings
 	err := rdb.Set(ctx, "user:1:name", "Giovanni Zamboni", 0).Err()
-	if err != nil { log.Printf("Error setting key: %v", err) }
+	if err != nil {
+		log.Printf("Error setting key: %v", err)
+	}
 	rdb.Set(ctx, "user:1:email", "giovanni@example.com", 0)
 
 	// 2. Hashes

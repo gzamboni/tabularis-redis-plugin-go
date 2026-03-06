@@ -1,0 +1,176 @@
+{
+  "description": "Example JSON-RPC requests for the pubsub_acknowledge_messages method",
+  "examples": [
+    {
+      "name": "Acknowledge single message",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "pubsub_acknowledge_messages",
+        "params": {
+          "params": {
+            "driver": "redis",
+            "host": "localhost",
+            "port": 6379,
+            "database": "0"
+          },
+          "subscription_id": "sub_abc123def456",
+          "message_ids": [1]
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "success": true,
+          "subscription_id": "sub_abc123def456",
+          "messages_acknowledged": 1
+        }
+      }
+    },
+    {
+      "name": "Acknowledge multiple messages",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "pubsub_acknowledge_messages",
+        "params": {
+          "params": {
+            "driver": "redis",
+            "host": "localhost",
+            "port": 6379,
+            "database": "0"
+          },
+          "subscription_id": "sub_abc123def456",
+          "message_ids": [1, 2, 3, 4, 5]
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "success": true,
+          "subscription_id": "sub_abc123def456",
+          "messages_acknowledged": 5
+        }
+      }
+    },
+    {
+      "name": "Error: Empty subscription ID",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "pubsub_acknowledge_messages",
+        "params": {
+          "params": {
+            "driver": "redis",
+            "host": "localhost",
+            "port": 6379,
+            "database": "0"
+          },
+          "subscription_id": "",
+          "message_ids": [1, 2, 3]
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+          "code": -32603,
+          "message": "subscription_id is required"
+        }
+      }
+    },
+    {
+      "name": "Error: Empty message IDs",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "pubsub_acknowledge_messages",
+        "params": {
+          "params": {
+            "driver": "redis",
+            "host": "localhost",
+            "port": 6379,
+            "database": "0"
+          },
+          "subscription_id": "sub_abc123def456",
+          "message_ids": []
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": {
+          "code": -32603,
+          "message": "message_ids is required and must not be empty"
+        }
+      }
+    },
+    {
+      "name": "Error: Invalid subscription ID",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "pubsub_acknowledge_messages",
+        "params": {
+          "params": {
+            "driver": "redis",
+            "host": "localhost",
+            "port": 6379,
+            "database": "0"
+          },
+          "subscription_id": "invalid_sub_id",
+          "message_ids": [1, 2, 3]
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {
+          "code": -32603,
+          "message": "failed to get subscription: subscription not found: invalid_sub_id"
+        }
+      }
+    }
+  ],
+  "workflow": {
+    "description": "Typical workflow for using message acknowledgment",
+    "steps": [
+      {
+        "step": 1,
+        "action": "Subscribe to a channel",
+        "method": "pubsub_subscribe",
+        "note": "Creates a subscription and returns a subscription_id"
+      },
+      {
+        "step": 2,
+        "action": "Poll for messages",
+        "method": "pubsub_poll_messages",
+        "note": "Retrieve messages with auto_acknowledge=false to manually control acknowledgment"
+      },
+      {
+        "step": 3,
+        "action": "Process messages",
+        "note": "Application processes the messages"
+      },
+      {
+        "step": 4,
+        "action": "Acknowledge processed messages",
+        "method": "pubsub_acknowledge_messages",
+        "note": "Mark messages as processed by their message_ids"
+      },
+      {
+        "step": 5,
+        "action": "Repeat steps 2-4",
+        "note": "Continue polling and acknowledging messages"
+      },
+      {
+        "step": 6,
+        "action": "Unsubscribe when done",
+        "method": "pubsub_unsubscribe",
+        "note": "Clean up the subscription"
+      }
+    ]
+  }
+}

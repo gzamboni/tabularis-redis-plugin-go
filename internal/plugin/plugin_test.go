@@ -126,8 +126,8 @@ func TestGetTables(t *testing.T) {
 	resp := runRequest(t, req)
 
 	tables, ok := resp.Result.([]interface{})
-	if !ok || len(tables) != 5 {
-		t.Errorf("Expected 5 tables, got %v", resp.Result)
+	if !ok || len(tables) != 8 {
+		t.Errorf("Expected 8 tables, got %v", resp.Result)
 	}
 }
 
@@ -179,13 +179,13 @@ func TestGetSchemaSnapshot(t *testing.T) {
 	}
 
 	tables, ok := snapshot["tables"].([]interface{})
-	if !ok || len(tables) != 5 {
-		t.Errorf("Expected 5 tables in snapshot, got %v", snapshot["tables"])
+	if !ok || len(tables) != 8 {
+		t.Errorf("Expected 8 tables in snapshot, got %v", snapshot["tables"])
 	}
 
 	columns, ok := snapshot["columns"].(map[string]interface{})
-	if !ok || len(columns) != 5 {
-		t.Errorf("Expected 5 column definitions in snapshot, got %v", snapshot["columns"])
+	if !ok || len(columns) != 8 {
+		t.Errorf("Expected 8 column definitions in snapshot, got %v", snapshot["columns"])
 	}
 }
 

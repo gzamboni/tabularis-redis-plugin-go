@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -20,10 +20,20 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Test Unit
+    - name: Run Unit Tests
       run: go test -v ./...
 
-    - name: Test E2E
+    - name: Setup Redis (main branch only)
+      if: github.ref == 'refs/heads/main'
+      uses: shogo82148/actions-setup-redis@v1
+      with:
+        redis-version: '7.x'
+
+    - name: Run E2E Tests (main branch only)
+      if: github.ref == 'refs/heads/main'
       run: |
-        chmod +x run_e2e.sh
-        ./run_e2e.sh
+        chmod +x tests/test_pubsub_comprehensive.sh
+        ./tests/test_pubsub_comprehensive.sh
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379

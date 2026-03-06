@@ -3,3 +3,4 @@
 *-darwin-arm64
 *.exe
 dist/
+coverage.out

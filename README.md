@@ -26,9 +26,10 @@ This plugin enables Tabularis to connect to Redis databases and explore data in 
 
 - **Key Scanning** — View all keys with their types and Time-To-Live (TTL)
 - **Virtual Tables** — Explore Hashes, Lists, Sets, and Sorted Sets as virtual relational tables
+- **Redis Pub/Sub Support** — Subscribe to channels, publish messages, and query messages through virtual tables
 - **JSON-RPC 2.0** — Implements the standard Tabularis plugin protocol over stdio
 - **Cross-platform** — Supports Linux (amd64, arm64), macOS (amd64, arm64), and Windows (amd64, arm64)
-- **Read-only Operations** — Safe exploration of Redis data without modification risk
+- **Write Operations** — Support for INSERT, UPDATE, and DELETE operations on Redis data structures
 
 ## Supported Redis Data Types
 
@@ -41,6 +42,9 @@ The plugin maps Redis data structures to virtual tables for SQL-like querying:
 | **List** | Ordered collections of strings | `lists` |
 | **Set** | Unordered collections of unique strings | `sets` |
 | **Sorted Set (ZSet)** | Collections of unique strings ordered by score | `zsets` |
+| **Pub/Sub Channels** | Active Redis Pub/Sub channels | `pubsub_channels` |
+| **Pub/Sub Messages** | Messages from active subscriptions | `pubsub_messages` |
+| **Pub/Sub Subscriptions** | Active subscription information | `pubsub_subscriptions` |
 
 ## Installation
 
@@ -371,6 +375,319 @@ DELETE FROM zsets WHERE key = 'leaderboard' AND member = 'player1'
 -- Redis: ZREM leaderboard "player1"
 ```
 
+## Redis Pub/Sub Support
+
+The plugin provides comprehensive support for Redis Pub/Sub (Publish/Subscribe) messaging through both JSON-RPC methods and virtual tables. This allows you to subscribe to channels, publish messages, and query messages using familiar SQL syntax.
+
+### Overview
+
+Redis Pub/Sub is a messaging pattern where publishers send messages to channels without knowledge of subscribers, and subscribers receive messages from channels they're interested in. The plugin bridges Redis's asynchronous Pub/Sub model with Tabularis's synchronous interface using a polling-based approach with message buffering.
+
+### Key Features
+
+- **Channel Subscriptions** — Subscribe to specific channels or pattern-based channels
+- **Message Buffering** — Messages are buffered server-side for reliable retrieval
+- **Message Acknowledgment** — Control when messages are marked as processed
+- **Virtual Tables** — Query channels, messages, and subscriptions using SQL
+- **TTL Management** — Subscriptions automatically expire after a configurable time-to-live
+
+### JSON-RPC Methods
+
+#### Subscribe to a Channel
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "pubsub_subscribe",
+  "params": {
+    "params": {
+      "driver": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "0"
+    },
+    "channel": "notifications",
+    "is_pattern": false,
+    "buffer_size": 1000,
+    "ttl": 3600
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "subscription_id": "sub_abc123def456",
+    "channel": "notifications",
+    "is_pattern": false,
+    "created_at": 1709673600,
+    "buffer_size": 0,
+    "max_buffer": 1000,
+    "ttl": 3600
+  }
+}
+```
+
+#### Publish a Message
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "pubsub_publish",
+  "params": {
+    "params": {
+      "driver": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "0"
+    },
+    "channel": "notifications",
+    "message": "Hello, Redis Pub/Sub!"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "success": true,
+    "channel": "notifications",
+    "receivers": 2
+  }
+}
+```
+
+#### Poll for Messages
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "pubsub_poll_messages",
+  "params": {
+    "params": {
+      "driver": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "0"
+    },
+    "subscription_id": "sub_abc123def456",
+    "max_messages": 100,
+    "timeout_ms": 1000,
+    "auto_acknowledge": false
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "messages": [
+      {
+        "message_id": 1,
+        "channel": "notifications",
+        "payload": "Hello, Redis Pub/Sub!",
+        "published_at": 1709673610,
+        "received_at": 1709673610
+      }
+    ],
+    "more_available": false,
+    "subscription_id": "sub_abc123def456",
+    "buffer_size": 0
+  }
+}
+```
+
+#### Acknowledge Messages
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "pubsub_acknowledge_messages",
+  "params": {
+    "params": {
+      "driver": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "0"
+    },
+    "subscription_id": "sub_abc123def456",
+    "message_ids": [1, 2, 3]
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "success": true,
+    "subscription_id": "sub_abc123def456",
+    "messages_acknowledged": 3
+  }
+}
+```
+
+#### Unsubscribe from a Channel
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "method": "pubsub_unsubscribe",
+  "params": {
+    "params": {
+      "driver": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "0"
+    },
+    "subscription_id": "sub_abc123def456"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "result": {
+    "success": true,
+    "subscription_id": "sub_abc123def456",
+    "messages_dropped": 5
+  }
+}
+```
+
+### Pub/Sub Virtual Tables
+
+#### `pubsub_channels` Table
+
+Lists all active Redis Pub/Sub channels with subscriber information.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `channel` | STRING | Channel name |
+| `subscribers` | INTEGER | Number of active subscribers |
+| `is_pattern` | BOOLEAN | Whether this is a pattern channel |
+| `last_message_time` | INTEGER | Unix timestamp of last message (0 = unknown) |
+
+**Example Queries:**
+```sql
+-- List all active channels
+SELECT * FROM pubsub_channels
+
+-- Find channels with subscribers
+SELECT * FROM pubsub_channels WHERE subscribers > 0
+
+-- Sort by subscriber count
+SELECT * FROM pubsub_channels ORDER BY subscribers DESC
+
+-- Find specific channel
+SELECT * FROM pubsub_channels WHERE channel = 'notifications'
+```
+
+#### `pubsub_messages` Table
+
+Provides access to messages from active subscriptions.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `subscription_id` | STRING | Subscription identifier |
+| `message_id` | INTEGER | Unique message ID within subscription |
+| `channel` | STRING | Channel the message was received on |
+| `payload` | STRING | Message content |
+| `published_at` | INTEGER | Unix timestamp when published |
+| `received_at` | INTEGER | Unix timestamp when received |
+
+**Example Queries:**
+```sql
+-- List all messages from all subscriptions
+SELECT * FROM pubsub_messages
+
+-- Get messages from a specific subscription
+SELECT * FROM pubsub_messages WHERE subscription_id = 'sub_abc123'
+
+-- Find messages on a specific channel
+SELECT * FROM pubsub_messages WHERE channel = 'notifications'
+
+-- Get recent messages
+SELECT * FROM pubsub_messages ORDER BY received_at DESC LIMIT 10
+
+-- Filter by payload content
+SELECT * FROM pubsub_messages WHERE payload LIKE '%error%'
+```
+
+#### `pubsub_subscriptions` Table
+
+Shows information about active Pub/Sub subscriptions.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | STRING | Unique subscription identifier |
+| `channel` | STRING | Subscribed channel or pattern |
+| `is_pattern` | BOOLEAN | Whether this is a pattern subscription |
+| `created_at` | INTEGER | Unix timestamp when subscription was created |
+| `ttl` | INTEGER | Time-to-live in seconds (time until expiration) |
+| `buffer_size` | INTEGER | Maximum buffer capacity |
+| `buffer_used` | INTEGER | Current number of unacknowledged messages |
+| `messages_received` | INTEGER | Total messages received |
+| `messages_dropped` | INTEGER | Estimated messages dropped due to buffer overflow |
+
+**Example Queries:**
+```sql
+-- List all active subscriptions
+SELECT * FROM pubsub_subscriptions
+
+-- Find subscriptions about to expire
+SELECT * FROM pubsub_subscriptions WHERE ttl < 300 ORDER BY ttl ASC
+
+-- Check buffer usage
+SELECT id, channel, buffer_used, buffer_size
+FROM pubsub_subscriptions
+WHERE buffer_used > buffer_size * 0.8
+
+-- Find subscriptions with dropped messages
+SELECT * FROM pubsub_subscriptions WHERE messages_dropped > 0
+
+-- Pattern subscriptions only
+SELECT * FROM pubsub_subscriptions WHERE is_pattern = true
+```
+
+### Best Practices
+
+1. **Buffer Sizing** — Set appropriate buffer sizes based on expected message volume (default: 1000 messages)
+2. **TTL Management** — Use reasonable TTL values to prevent resource leaks (default: 3600 seconds)
+3. **Message Acknowledgment** — Acknowledge messages after processing to free buffer space
+4. **Polling Frequency** — Poll at reasonable intervals to balance responsiveness and resource usage
+5. **Pattern Subscriptions** — Use pattern subscriptions (`user:*`) to subscribe to multiple channels efficiently
+6. **Cleanup** — Unsubscribe when done to release resources immediately
+
+### Limitations
+
+1. **Plugin-Scoped Subscriptions** — Only subscriptions created through this plugin instance are visible
+2. **Buffer Overflow** — Messages may be dropped if buffer fills up before acknowledgment
+3. **No Historical Messages** — Only messages received after subscription are available
+4. **Pattern Detection** — `is_pattern` in `pubsub_channels` always returns false (Redis limitation)
+5. **Last Message Time** — `last_message_time` in `pubsub_channels` always returns 0 (not tracked by Redis)
+
+For more detailed information about Redis Pub/Sub functionality, see [`docs/PUBSUB.md`](docs/PUBSUB.md).
+
 ## Supported Operations
 
 The plugin implements the following JSON-RPC methods:
@@ -382,6 +699,11 @@ The plugin implements the following JSON-RPC methods:
 | `get_tables` | List virtual tables | Connection params + database |
 | `get_columns` | Get column metadata for a table | Connection params + database + table |
 | `execute_query` | Execute SELECT, INSERT, UPDATE, DELETE queries | Connection params + database + SQL query |
+| `pubsub_subscribe` | Subscribe to a Redis Pub/Sub channel | Connection params + channel + options |
+| `pubsub_unsubscribe` | Unsubscribe from a channel | Connection params + subscription_id |
+| `pubsub_publish` | Publish a message to a channel | Connection params + channel + message |
+| `pubsub_poll_messages` | Retrieve messages from a subscription | Connection params + subscription_id + options |
+| `pubsub_acknowledge_messages` | Acknowledge processed messages | Connection params + subscription_id + message_ids |
 
 > **Note:** Methods like `get_schemas`, `get_views`, `get_routines`, etc., return empty responses as they don't apply to Redis's data model.
 
@@ -391,14 +713,37 @@ The plugin implements the following JSON-RPC methods:
 
 - Go 1.19 or higher
 - Git
+- Make (optional, but recommended)
 
-### Build
+### Quick Start with Makefile
+
+The project includes a comprehensive Makefile for common development tasks:
 
 ```bash
 # Clone the repository
 git clone https://github.com/gzamboni/tabularis-redis-plugin-go.git
 cd tabularis-redis-plugin-go
 
+# Show all available commands
+make help
+
+# Build the plugin
+make build
+
+# Run tests
+make test
+
+# Install locally to Tabularis
+make install
+```
+
+See [`docs/MAKEFILE.md`](docs/MAKEFILE.md) for complete Makefile documentation.
+
+### Manual Build
+
+If you prefer not to use Make:
+
+```bash
 # Build the plugin
 go build -o tabularis-redis-plugin-go ./cmd/tabularis-redis-plugin-go
 ```
@@ -407,7 +752,14 @@ The executable will be generated in the current directory.
 
 ### Cross-Platform Build
 
-To build for multiple platforms:
+Using Make (recommended):
+
+```bash
+# Build for all platforms (Linux, macOS, Windows - amd64/arm64)
+make build-all
+```
+
+Or manually:
 
 ```bash
 # Linux AMD64
@@ -452,8 +804,8 @@ go test -v ./...
 Run E2E tests against a real Redis instance (requires Docker):
 
 ```bash
-chmod +x run_e2e.sh
-./run_e2e.sh
+chmod +x tests/run_e2e.sh
+./tests/run_e2e.sh
 ```
 
 This script:
@@ -511,7 +863,7 @@ Contributions are welcome! Please:
 Ensure all tests pass before submitting:
 ```bash
 go test -v ./...
-./run_e2e.sh
+./tests/run_e2e.sh
 ```
 
 ## License

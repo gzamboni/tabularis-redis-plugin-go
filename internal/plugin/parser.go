@@ -20,6 +20,12 @@ func parseQuery(query string) QueryParser {
 		parser.Table = "sets"
 	} else if strings.Contains(normalizedQuery, "FROM ZSETS") {
 		parser.Table = "zsets"
+	} else if strings.Contains(normalizedQuery, "FROM PUBSUB_CHANNELS") {
+		parser.Table = "pubsub_channels"
+	} else if strings.Contains(normalizedQuery, "FROM PUBSUB_MESSAGES") {
+		parser.Table = "pubsub_messages"
+	} else if strings.Contains(normalizedQuery, "FROM PUBSUB_SUBSCRIPTIONS") {
+		parser.Table = "pubsub_subscriptions"
 	}
 	whereIdx := strings.Index(upperQuery, "WHERE")
 	if whereIdx != -1 {
