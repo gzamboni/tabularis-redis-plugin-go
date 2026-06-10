@@ -68,6 +68,29 @@ func TestTestConnection(t *testing.T) {
 	}
 }
 
+func TestTestConnection_EmptyUsername(t *testing.T) {
+	s, params := setupTestDB(t)
+	defer s.Close()
+
+	emptyUsername := ""
+	params.Username = &emptyUsername
+
+	paramsJSON, _ := json.Marshal(map[string]interface{}{"params": params})
+	req := Request{
+		JSONRPC: "2.0",
+		ID:      json.RawMessage(`1`),
+		Method:  "test_connection",
+		Params:  paramsJSON,
+	}
+
+	resp := runRequest(t, req)
+
+	result, ok := resp.Result.(map[string]interface{})
+	if !ok || result["success"] != true {
+		t.Errorf("Expected success=true with empty username, got %v", resp.Result)
+	}
+}
+
 func TestTestConnection_Failure(t *testing.T) {
 	// Use invalid port to simulate connection failure
 	host := "localhost"
