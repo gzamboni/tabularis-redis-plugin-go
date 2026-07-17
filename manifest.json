@@ -1,7 +1,7 @@
 {
   "id": "redis",
   "name": "Redis",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Tabularis driver for Redis databases",
   "default_port": 6379,
   "executable": "tabularis-redis-plugin-go",
