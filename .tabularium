@@ -1,0 +1,42 @@
+{
+  "name": "redis-go",
+  "version": "0.4.1",
+  "kind": "driver",
+  "description": "Tabularis driver for Redis databases. Supports virtual table views for Strings, Hashes, Lists, Sets, and ZSets with native UI write operations.",
+  "engine": "redis",
+  "paradigms": [
+    "key-value"
+  ],
+  "tags": [
+    "driver",
+    "redis",
+    "key-value",
+    "nosql",
+    "go"
+  ],
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "readme": "README.md",
+  "homepage": "https://github.com/gzamboni/tabularis-redis-plugin-go",
+  "support": {
+    "issues_url": "https://github.com/gzamboni/tabularis-redis-plugin-go/issues"
+  },
+  "min_runtime_version": "0.9.2",
+  "default_port": 6379,
+  "executable": "tabularis-redis-plugin-go",
+  "color": "#D82C20",
+  "capabilities": {
+    "schemas": false,
+    "views": false,
+    "routines": false,
+    "file_based": false,
+    "identifier_quote": "\"",
+    "alter_primary_key": false
+  },
+  "data_types": [
+    { "name": "STRING", "category": "string", "requires_length": false, "requires_precision": false },
+    { "name": "INTEGER", "category": "numeric", "requires_length": false, "requires_precision": false },
+    { "name": "BOOLEAN", "category": "other", "requires_length": false, "requires_precision": false },
+    { "name": "JSON", "category": "json", "requires_length": false, "requires_precision": false }
+  ]
+}
