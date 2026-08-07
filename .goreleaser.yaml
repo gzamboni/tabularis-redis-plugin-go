@@ -20,8 +20,13 @@ archives:
     name_template: "tabularis-redis-plugin-go-{{ .Os }}-{{ .Arch }}"
     files:
       - manifest.json
+      - .tabularium
       - README.md
       - LICENSE
+
+release:
+  extra_files:
+    - glob: .tabularium
 
 changelog:
   sort: asc
